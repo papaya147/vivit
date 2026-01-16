@@ -384,7 +384,7 @@ class HierarchicalViT(nn.Module):
         x = self.unflatten_t1_out(x)  # (B, F, N + 1, E)
         x = x[:, :, 0, :]  # (B, F, E)
 
-        x, _ = self.t2(x)
+        x, _ = self.t2(x)  # (B, F, E)
         x = x.mean(dim=1)  # (B, E)
 
         x = self.l1(x)
