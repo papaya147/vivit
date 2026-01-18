@@ -185,7 +185,7 @@ def train(
 def preprocess(
     args: Config,
     observations: torch.Tensor,
-    gaze_masks: torch.Tensor,
+    gaze_coords: torch.Tensor,
     augment: bool = True,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
@@ -194,15 +194,19 @@ def preprocess(
 
     :param args: Config.
     :param observations: (B, F, C, H, W)
-    :param gaze_masks: (B, F, H, W)
+    :param gaze_coords: (B, F, layers, 2)
     :param augment: Augment the data with random shifts and noise?
     :return: (B, F, C, H, W), (B, F, T)
     """
     B, F, C, H, W = observations.shape
     random_example = random.randint(0, len(observations) - 1)
 
-    aug_observations = observations
-    aug_gaze_masks = gaze_masks
+    gaze_masks = gaze.decaying_gaussian_mask(
+        gaze_coords, sigma=args.gaze_sigma, shape=(H, W), decay=args.gaze_decay
+    )
+
+    aug_observations = observations.to(device=device)
+    aug_gaze_masks = gaze_masks.to(device=device)
     if augment:
         aug_observations, aug_gaze_masks = augmentation.random_shift(
             aug_observations, aug_gaze_masks, pad=args.augment_shift_pad
@@ -246,16 +250,10 @@ def main():
 
         observations, gaze_coords, actions = atari.load_data(
             f"{args.atari_dataset_folder}/{game}/num_episodes_20_fs4_human.pt",
-            device=device,
-        )
-        B, F, C, H, W = observations.shape
-
-        gaze_masks = gaze.decaying_gaussian_mask(
-            gaze_coords, sigma=args.gaze_sigma, shape=(H, W), decay=args.gaze_decay
+            device="cpu",
         )
 
-        train(args, observations, gaze_masks, actions)
-        break
+        train(args, observations, gaze_coords, actions)
 
 
 if __name__ == "__main__":
