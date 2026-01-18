@@ -48,7 +48,7 @@ class Config:
     temporal_heads: int = 8
     inner_dim: int = 64
     mlp_dim: int = 256
-    dropout: float = 0.0
+    dropout: float = 0.1
 
     # hyperparams
     learning_rate: float = 1e-4
@@ -78,7 +78,8 @@ def train(
         f"lr{args.learning_rate:.0e}_"
         f"lam{args.lambda_gaze}_"
         f"dim{args.embedding_dim}_"
-        f"pt{args.spatial_patch_size[0]}"
+        f"pt{args.spatial_patch_size[0]}_"
+        f"d{args.dropout}"
     )
     run = wandb.init(
         entity="papaya147-ml",
