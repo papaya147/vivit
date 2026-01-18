@@ -25,4 +25,7 @@ conda activate /home1/adsrivat/.conda/envs/.venv
 echo "Job started on $(hostname) at $(date)"
 nvidia-smi
 
+echo "Python: $(which python)"
+python -c "import torch; print(f'Torch: {torch.__version__}')"
+
 python main.py
