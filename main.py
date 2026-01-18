@@ -18,6 +18,9 @@ import wandb
 from device import device
 from vivit import FactorizedViViT
 
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+
 
 @dataclass
 class Config:
