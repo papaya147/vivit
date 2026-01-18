@@ -1,6 +1,7 @@
 import gc
 import os
 import random
+import sys
 from dataclasses import dataclass
 from typing import Tuple
 
@@ -21,6 +22,7 @@ from vivit import FactorizedViViT
 @dataclass
 class Config:
     # paths and flags
+    game_index: int = 0
     game: str = ""
     atari_dataset_folder: str = "./atari-dataset"
     use_plots: bool = False
@@ -47,7 +49,7 @@ class Config:
 
     # hyperparams
     learning_rate: float = 1e-4
-    epochs: int = 1000
+    epochs: int = 500
     train_pct: float = 0.8
     batch_size: int = 32
     lambda_gaze: float = 1.0
@@ -68,10 +70,20 @@ def train(
     :param actions: (B)
     :return:
     """
+    group_id = (
+        f"v1_"
+        f"lr{args.learning_rate:.0e}_"
+        f"lam{args.lambda_gaze}_"
+        f"dim{args.embedding_dim}_"
+        f"pt{args.spatial_patch_size[0]}"
+    )
     run = wandb.init(
         entity="papaya147-ml",
         project="ViViT-Atari",
         config=args.__dict__,
+        group=group_id,
+        name=args.game,
+        job_type="train",
     )
 
     B, F, C, H, W = observations.shape
@@ -138,9 +150,11 @@ def train(
 
             acc = (pred_a.argmax(dim=1) == a).float().sum()
 
-            metrics["train_loss"] += loss.item()
-            metrics["train_policy_loss"] += policy_loss.item()
-            metrics["train_gaze_loss"] += gaze_loss.item()
+            curr_batch_size = obs.size(0)
+
+            metrics["train_loss"] += loss.item() * curr_batch_size
+            metrics["train_policy_loss"] += policy_loss.item() * curr_batch_size
+            metrics["train_gaze_loss"] += gaze_loss.item() * curr_batch_size
             metrics["train_acc"] += acc.item()
 
         # validation
@@ -163,9 +177,11 @@ def train(
 
                 acc = (pred_a.argmax(dim=1) == a).float().sum()
 
-                metrics["val_loss"] += loss.item()
-                metrics["val_policy_loss"] += policy_loss.item()
-                metrics["val_gaze_loss"] += gaze_loss.item()
+                curr_batch_size = obs.size(0)
+
+                metrics["val_loss"] += loss.item() * curr_batch_size
+                metrics["val_policy_loss"] += policy_loss.item() * curr_batch_size
+                metrics["val_gaze_loss"] += gaze_loss.item() * curr_batch_size
                 metrics["val_acc"] += acc.item()
 
         log_data = {
@@ -250,24 +266,22 @@ def preprocess(
 def main():
     args = Config()
 
+    if len(sys.argv) > 1:
+        args.game_index = int(sys.argv[1])
+    else:
+        args.game_index = 0
+
     atari_games = atari.list_games(args.atari_dataset_folder)
 
-    for game in atari_games:
-        args.game = game
+    args.game = atari_games[args.game_index]
+    print(f"Game: {args.game}")
 
-        observations, gaze_coords, actions = atari.load_data(
-            f"{args.atari_dataset_folder}/{game}/num_episodes_20_fs4_human.pt",
-            device="cpu",
-        )
+    observations, gaze_coords, actions = atari.load_data(
+        f"{args.atari_dataset_folder}/{args.game}/num_episodes_20_fs4_human.pt",
+        device="cpu",
+    )
 
-        train(args, observations, gaze_coords, actions)
-
-        del observations
-        del gaze_coords
-        del actions
-
-        gc.collect()
-        torch.cuda.empty_cache()
+    train(args, observations, gaze_coords, actions)
 
 
 if __name__ == "__main__":
