@@ -37,8 +37,9 @@ class Config:
     save_folder: str = "./models"
 
     # gaze
-    gaze_sigma: int = 5
-    gaze_decay: float = 0.9
+    gaze_gamma: int = 15
+    gaze_beta: float = 0.99
+    gaze_alpha: float = 0.7
 
     # augmentation
     augment_shift_pad: int = 4
@@ -168,7 +169,7 @@ def train(
         project="ViViT-Atari",
         config=args.__dict__,
         group=group_id,
-        name=f"{args.game}-v2",
+        name=f"{args.game}-v3",
         job_type="train",
     )
 
@@ -331,7 +332,11 @@ def preprocess(
     random_example = random.randint(0, len(observations) - 1)
 
     gaze_masks = gaze.decaying_gaussian_mask(
-        gaze_coords, sigma=args.gaze_sigma, shape=(H, W), decay=args.gaze_decay
+        gaze_coords,
+        gamma=args.gaze_gamma,
+        shape=(H, W),
+        beta=args.gaze_beta,
+        alpha=args.gaze_alpha,
     )
 
     aug_observations = observations.to(device=device)

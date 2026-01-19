@@ -37,8 +37,8 @@ import torch
 def decaying_gaussian_mask(
     gaze_coords: torch.Tensor,
     shape: Tuple[int, int],
-    sigma: float = 15,  # gamma in the paper
-    decay: float = 0.99,  # beta in the paper
+    gamma: float = 15,  # gamma in the paper
+    beta: float = 0.99,  # beta in the paper
     alpha: float = 0.7,  # alpha in the paper
 ) -> torch.Tensor:
     """
@@ -47,8 +47,8 @@ def decaying_gaussian_mask(
 
     :param gaze_coords: (..., layers, 2). Last dim is (x, y), 2nd-to-last is Time.
     :param shape: (height, width) of the image.
-    :param sigma: Spread of the gaussian (Gamma).
-    :param decay: Rate at which previous mask fades (Beta).
+    :param gamma: Spread of the gaussian (Gamma).
+    :param beta: Rate at which previous mask fades (Beta).
     :param alpha: Smoothing factor for coordinates (0 = no smoothing, 1 = static).
     :return: (..., height, width). Batch dims matching input.
     """
@@ -85,10 +85,10 @@ def decaying_gaussian_mask(
     grid_y = grid_y.unsqueeze(0)  # (1, H, W)
 
     heatmap = torch.zeros((B, H, W), dtype=torch.float32, device=device)
-    denom = 2.0 * sigma**2
+    denom = 2.0 * gamma**2
 
     for i in range(layers):
-        heatmap = heatmap * decay
+        heatmap = heatmap * beta
 
         current_points = gaze_flat[:, i, :]
 
