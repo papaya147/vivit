@@ -26,7 +26,11 @@ class Attention(nn.Module):
         self.scale = dim_head**-0.5
         no_project = heads == 1 and dim_head == dim
         self.return_last_block_attn = return_last_block_attn
-        self.mask = mask
+
+        if mask is not None:
+            self.register_buffer("mask", mask, persistent=False)
+        else:
+            self.mask = None
 
         self.ln1 = nn.LayerNorm(dim)
         self.wq = nn.Linear(dim, inner_dim, bias=False)
@@ -71,10 +75,6 @@ class Attention(nn.Module):
         :return: (B, T, E)
         """
         B, T, E = x.shape
-
-        if self.mask is not None:
-            device = x.device
-            self.mask = self.mask.to(device)
 
         x = self.ln1(x)  # (B, T, E)
 
