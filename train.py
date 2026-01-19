@@ -5,9 +5,16 @@ import sys
 from dataclasses import dataclass
 from typing import Tuple
 
+import ale_py
+import gymnasium as gym
 import torch
 import torch.nn.functional as Fn
 import torch.optim as optim
+from gymnasium.wrappers import (
+    FrameStackObservation,
+    GrayscaleObservation,
+    ResizeObservation,
+)
 from torch import device
 from torch.utils.data import DataLoader, TensorDataset, random_split
 
@@ -42,8 +49,8 @@ class Config:
     # transformer arch
     spatial_patch_size: Tuple[int, int] = (6, 6)
     embedding_dim: int = 256
-    spatial_depth: int = 4
-    temporal_depth: int = 4
+    spatial_depth: int = 3
+    temporal_depth: int = 2
     spatial_heads: int = 8
     temporal_heads: int = 8
     inner_dim: int = 64
@@ -56,6 +63,83 @@ class Config:
     train_pct: float = 0.8
     batch_size: int = 32
     lambda_gaze: float = 1.0
+    weight_decay: float = 0.01
+
+    # testing
+    test_episodes: int = 5
+    max_episode_length: int = 10000
+
+
+GYM_ENV_MAP = {
+    "Alien": "AlienNoFrameskip-v4",
+    "Assault": "AssaultNoFrameskip-v4",
+    "Asterix": "AsterixNoFrameskip-v4",
+    "Breakout": "BreakoutNoFrameskip-v4",
+    "ChopperCommand": "ChopperCommandNoFrameskip-v4",
+    "DemonAttack": "DemonAttackNoFrameskip-v4",
+    "Enduro": "EnduroNoFrameskip-v4",
+    "Freeway": "FreewayNoFrameskip-v4",
+    "Frostbite": "FrostbiteNoFrameskip-v4",
+    "MsPacman": "MsPacmanNoFrameskip-v4",
+    "Phoenix": "PhoenixNoFrameskip-v4",
+    "Qbert": "QbertNoFrameskip-v4",
+    "RoadRunner": "RoadRunnerNoFrameskip-v4",
+    "Seaquest": "SeaquestNoFrameskip-v4",
+    "UpNDown": "UpNDownNoFrameskip-v4",
+}
+
+
+def test_agent(args: Config, model: torch.nn.Module) -> float:
+    """
+    Runs the model in the actual Gym environment to measure performance.
+    """
+    env_name = GYM_ENV_MAP.get(args.game)
+    if env_name is None:
+        print(f"Warning: No Gym environment found for '{args.game}' in GYM_ENV_MAP.")
+        return 0.0
+
+    env = gym.make(env_name, render_mode="rgb_array")
+    env = ResizeObservation(env, (84, 84))
+    env = GrayscaleObservation(env, keep_dim=False)
+    env = FrameStackObservation(env, 4)
+
+    action_meanings = env.unwrapped.get_action_meanings()
+    fire_a = -1
+    if "FIRE" in action_meanings:
+        fire_a = action_meanings.index("FIRE")
+
+    total_reward = 0
+
+    model.eval()
+    for i in range(args.test_episodes):
+        obs, _ = env.reset()
+        done = False
+        ep_reward = 0
+        steps = 0
+
+        if fire_a != -1:
+            obs, _, _, _, _ = env.step(fire_a)
+
+        while not done and steps < args.max_episode_length:
+            steps += 1
+
+            obs = torch.from_numpy(obs).float() / 255.0
+            F, H, W = obs.shape
+            obs = obs.view(1, F, 1, H, W).to(device=device)
+
+            with torch.no_grad():
+                pred_a, _ = model(obs)
+                action = pred_a.argmax(dim=1).item()
+
+            obs, reward, terminated, truncated, _ = env.step(action)
+            done = terminated or truncated
+            ep_reward += reward
+
+        total_reward += ep_reward
+
+    env.close()
+
+    return total_reward / args.test_episodes
 
 
 def train(
@@ -86,12 +170,25 @@ def train(
         project="ViViT-Atari",
         config=args.__dict__,
         group=group_id,
-        name=args.game,
+        name=f"{args.game}-v2",
         job_type="train",
     )
 
     B, F, C, H, W = observations.shape
     n_actions = torch.max(actions).item() + 1
+
+    all_actions = actions.view(-1).long()
+    class_counts = torch.bincount(all_actions)
+    num_classes = len(class_counts)
+
+    safe_counts = class_counts.float()
+    safe_counts[safe_counts == 0] = 1.0
+
+    total_samples = len(all_actions)
+    class_weights = total_samples / (num_classes * safe_counts)
+    class_weights[class_counts == 0] = 0.0
+
+    class_weights = class_weights.to(device=device)
 
     model = FactorizedViViT(
         image_size=(H, W),
@@ -110,7 +207,9 @@ def train(
         use_flash_attn=False,
         return_cls_attn=True,
     ).to(device=device)
-    optimizer = optim.Adam(model.parameters(), lr=args.learning_rate)
+    optimizer = optim.AdamW(
+        model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
+    )
 
     dataset = TensorDataset(observations, gaze_masks, actions)
     train_size = int(args.train_pct * len(dataset))
@@ -139,7 +238,7 @@ def train(
             pred_a, cls_attn = model(obs)
 
             # behavior cloning loss
-            policy_loss = Fn.cross_entropy(pred_a, a)
+            policy_loss = Fn.cross_entropy(pred_a, a, weight=class_weights)
 
             # gaze loss
             cls_attn = cls_attn.mean(dim=2)  # (B, F, T)
@@ -170,7 +269,7 @@ def train(
                 pred_a, cls_attn = model(obs)
 
                 # behavior cloning loss
-                policy_loss = Fn.cross_entropy(pred_a, a)
+                policy_loss = Fn.cross_entropy(pred_a, a, weight=class_weights)
 
                 # gaze loss
                 cls_attn = cls_attn.mean(dim=2)  # (B, F, T)
@@ -188,11 +287,15 @@ def train(
                 metrics["val_gaze_loss"] += gaze_loss.item() * curr_batch_size
                 metrics["val_acc"] += acc.item()
 
+        # testing
+        mean_reward = test_agent(args, model)
+
         log_data = {
             k: v / train_size if "train" in k else v / val_size
             for k, v in metrics.items()
         }
         log_data["epoch"] = e
+        log_data["reward"] = mean_reward
 
         run.log(data=log_data)
 
