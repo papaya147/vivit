@@ -1,4 +1,3 @@
-import gc
 import os
 import random
 import sys
@@ -15,7 +14,6 @@ from gymnasium.wrappers import (
     GrayscaleObservation,
     ResizeObservation,
 )
-from torch import device
 from torch.utils.data import DataLoader, TensorDataset, random_split
 
 import atari
@@ -206,6 +204,7 @@ def train(
         dropout=args.dropout,
         use_flash_attn=False,
         return_cls_attn=True,
+        use_temporal_mask=True,
     ).to(device=device)
     optimizer = optim.AdamW(
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
