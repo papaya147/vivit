@@ -60,7 +60,7 @@ class Config:
     epochs: int = 500
     train_pct: float = 0.8
     batch_size: int = 32
-    lambda_gaze: float = 1.0
+    lambda_gaze: float = 10.0
     weight_decay: float = 0.01
 
     # testing
