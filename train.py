@@ -63,9 +63,11 @@ class Config:
     batch_size: int = 32
     lambda_gaze: float = 10.0
     weight_decay: float = 0.01
+    scheduler_factor: float = 0.5
+    scheduler_patience: int = 5
 
     # testing
-    test_episodes: int = 5
+    test_episodes: int = 10
     max_episode_length: int = 10000
 
 
@@ -210,6 +212,12 @@ def train(
     optimizer = optim.AdamW(
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer,
+        mode="min",
+        factor=args.scheduler_factor,
+        patience=args.scheduler_patience,
+    )
 
     dataset = TensorDataset(observations, gaze_masks, actions)
     train_size = int(args.train_pct * len(dataset))
@@ -217,6 +225,8 @@ def train(
     train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=True)
+
+    best_reward = -float("inf")
 
     for e in range(args.epochs):
         metrics = {
@@ -287,6 +297,8 @@ def train(
                 metrics["val_gaze_loss"] += gaze_loss.item() * curr_batch_size
                 metrics["val_acc"] += acc.item()
 
+        scheduler.step(metrics["val_loss"])
+
         # testing
         mean_reward = test_agent(args, model)
 
@@ -300,10 +312,16 @@ def train(
         run.log(data=log_data)
 
         # checkpointing
-        if e % 10 == 0:
-            save_path = f"{args.save_folder}/{args.game}/{e}.pt"
+        # if e % 10 == 0:
+        #     save_path = f"{args.save_folder}/{args.game}/{e}.pt"
+        #     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+        #     print(f"Saving model {save_path}...")
+        #     torch.save(model.state_dict(), save_path)
+
+        if mean_reward > best_reward:
+            best_reward = mean_reward
+            save_path = f"{args.save_folder}/{args.game}/best_reward.pt"
             os.makedirs(os.path.dirname(save_path), exist_ok=True)
-            print(f"Saving model {save_path}...")
             torch.save(model.state_dict(), save_path)
 
     save_path = f"{args.save_folder}/{args.game}/final.pt"
