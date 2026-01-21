@@ -1,5 +1,6 @@
 import math
 import os
+from pathlib import Path
 from typing import List, Tuple
 
 import matplotlib.pyplot as plt
@@ -106,17 +107,16 @@ def stack_observations_and_gaze_coords(
     )
 
 
-def load_data(
-    path: str, device: str
-) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+def load_data(dir: str, device: str) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Load Atari data for training and testing.
 
-    :param path: The path of the Atari game dataset.
+    :param dir: The folder of the Atari game dataset.
     :param device: The device to use.
     :return: (B, F, C, H, W), (B, F, layers, 2), (B)
     """
-    dataset = torch.load(path, weights_only=False)
+    files_list = [p for p in Path(dir).iterdir() if p.is_file()]
+    dataset = torch.load(files_list[0], weights_only=False)
 
     observations = torch.from_numpy(dataset["observations"]).to(
         dtype=torch.float, device=device

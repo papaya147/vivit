@@ -406,7 +406,7 @@ def main():
     print(f"Game: {args.game}")
 
     observations, gaze_coords, actions = atari.load_data(
-        f"{args.atari_dataset_folder}/{args.game}/num_episodes_20_fs4_human.pt",
+        f"{args.atari_dataset_folder}/{args.game}",
         device="cpu",
     )
 
