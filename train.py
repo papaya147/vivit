@@ -61,10 +61,10 @@ class Config:
     dropout: float = 0.1
 
     # hyperparams
-    learning_rate: float = 1e-4
+    learning_rate: float = 16e-4
     epochs: int = 1000
     train_pct: float = 0.8
-    batch_size: int = 32
+    batch_size: int = 512
     lambda_gaze: float = 10.0
     weight_decay: float = 0.01
     scheduler_factor: float = 0.5
