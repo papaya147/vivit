@@ -37,7 +37,7 @@ class Config:
     atari_dataset_folder: str = "../atari-dataset"
     use_plots: bool = False
     save_folder: str = "./models"
-    version: int = 3
+    version: int = 1
     seed: int = 42
 
     # gaze
@@ -65,14 +65,14 @@ class Config:
     epochs: int = 1000
     train_pct: float = 0.8
     batch_size: int = 512
-    lambda_gaze: float = 10.0
+    lambda_gaze: float = 1.0
     weight_decay: float = 0.01
     scheduler_factor: float = 0.5
     scheduler_patience: int = 5
 
     # testing
     test_episodes: int = 10
-    max_episode_length: int = 10000
+    max_episode_length: int = 5000
 
 
 GYM_ENV_MAP = {
@@ -237,8 +237,8 @@ def train(
 
     total_samples = len(all_actions)
     class_weights = total_samples / (num_classes * safe_counts)
-    class_weights[class_counts == 0] = 0.0
-
+    class_weights = torch.sqrt(class_weights)
+    class_weights = torch.clamp(class_weights, min=1.0, max=10.0)
     class_weights = class_weights.to(device=device)
 
     model = FactorizedViViT(
@@ -296,10 +296,16 @@ def train(
         resume="allow",
     )
 
-    dataset = TensorDataset(observations, gaze_masks, actions)
-    train_size = int(args.train_pct * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+    dataset_len = len(observations)
+    train_size = int(args.train_pct * dataset_len)
+    val_size = dataset_len - train_size
+
+    train_obs, val_obs = observations[:train_size], observations[train_size:]
+    train_gaze, val_gaze = gaze_masks[:train_size], gaze_masks[train_size:]
+    train_acts, val_acts = actions[:train_size], actions[train_size:]
+
+    train_dataset = TensorDataset(train_obs, train_gaze, train_acts)
+    val_dataset = TensorDataset(val_obs, val_gaze, val_acts)
 
     train_loader = DataLoader(
         train_dataset,
