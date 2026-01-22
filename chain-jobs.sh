@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Name of your slurm script
-JOB_SCRIPT="train.slurm"
+JOB_SCRIPT="train-carc.slurm"
 
 # How many jobs to chain
 NUM_JOBS=2
