@@ -311,7 +311,7 @@ def train(
         train_dataset,
         batch_size=args.batch_size,
         shuffle=True,
-        num_workers=10,
+        num_workers=8,
         pin_memory=True,
         persistent_workers=True,
     )
@@ -319,8 +319,9 @@ def train(
         val_dataset,
         batch_size=args.batch_size,
         shuffle=True,
-        num_workers=10,
+        num_workers=8,
         pin_memory=True,
+        persistent_workers=True,
     )
 
     for e in range(start_epoch, args.epochs):

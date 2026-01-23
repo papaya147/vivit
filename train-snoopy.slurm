@@ -6,15 +6,15 @@
 # --- RESOURCE REQUESTS ---
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=12
+#SBATCH --cpus-per-task=10
 #SBATCH --mem=48G
 #SBATCH --time=24:00:00
 
 # --- SHARDING CONFIGURATION ---
-#SBATCH --gres=shard:10
+#SBATCH --gres=shard:12
 
 # --- THE ARRAY CONTROLLER ---
-#SBATCH --array=0-14%4
+#SBATCH --array=0-14%7
 
 # --- SETUP ---
 source /scr/adsrivat/gabril-atari-vivit/.venv/bin/activate
