@@ -52,23 +52,23 @@ class Config:
     augment_noise_std: float = 0.005
 
     # transformer arch
-    spatial_patch_size: Tuple[int, int] = (6, 6)
-    embedding_dim: int = 256
+    spatial_patch_size: Tuple[int, int] = (7, 7)
+    embedding_dim: int = 128
     spatial_depth: int = 3
     temporal_depth: int = 2
-    spatial_heads: int = 8
-    temporal_heads: int = 8
-    inner_dim: int = 64
+    spatial_heads: int = 4
+    temporal_heads: int = 4
+    inner_dim: int = 32
     mlp_dim: int = 256
-    dropout: float = 0.1
+    dropout: float = 0.3
 
     # hyperparams
-    learning_rate: float = 3e-4
+    learning_rate: float = 5e-4
     epochs: int = 1000
     train_pct: float = 0.8
     batch_size: int = 32
     lambda_gaze: float = 1.0
-    weight_decay: float = 0.01
+    weight_decay: float = 0.1
     scheduler_factor: float = 0.5
     scheduler_patience: int = 5
     clip_grad_norm: float = 1.0
