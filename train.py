@@ -18,7 +18,7 @@ from gymnasium.wrappers import (
 from torch.amp import GradScaler, autocast
 from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
-from torch.utils.data import DataLoader, TensorDataset, random_split
+from torch.utils.data import DataLoader, TensorDataset
 
 import atari
 import augmentation
@@ -160,7 +160,7 @@ def save_checkpoint(
     wandb_id: str,
     model: torch.nn.Module,
     optimizer: optim.Optimizer,
-    scheduler: optim.lr_scheduler.ReduceLROnPlateau = None,
+    scheduler: SequentialLR = None,
 ):
     """
     Saves the complete training state to a file.
@@ -186,7 +186,7 @@ def load_checkpoint(
     path: str,
     model: torch.nn.Module,
     optimizer: optim.Optimizer,
-    scheduler: optim.lr_scheduler.ReduceLROnPlateau = None,
+    scheduler: SequentialLR = None,
 ) -> Tuple[int, float, str | None]:
     """
     Attempts to load a checkpoint.
@@ -305,7 +305,7 @@ def train(
     )
     run = wandb.init(
         entity="papaya147-ml",
-        project="ViViT-Atari",
+        project="GABRIL-Atari-ViViT",
         config=args.__dict__,
         group=group_id,
         name=f"{args.game}-v{args.version}",
