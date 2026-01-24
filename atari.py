@@ -107,13 +107,15 @@ def stack_observations_and_gaze_coords(
 
 
 def load_data(
-    folder: str, device: str
+    folder: str, device: str, gaze_temporal_decay: float
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Load Atari data for training and testing.
 
     :param folder: The folder of the Atari game dataset.
     :param device: The device to use.
+    :param gaze_temporal_decay: The gaze temporal decay, used to calculate
+        the amount of stacking layers (until opacity = 5%).
     :return: (B, F, C, H, W), (B, F, layers, 2), (B)
     """
     files_list = [p for p in Path(folder).iterdir() if p.is_file()]
@@ -136,7 +138,10 @@ def load_data(
     observation_list, gaze_coord_list = break_episodes(
         observations, gaze_coords, terminals
     )
-    gaze_coord_list = layer_gazes(gaze_coord_list, layers=20)
+
+    layers = int(math.ceil(math.log(0.005, gaze_temporal_decay)))
+    gaze_coord_list = layer_gazes(gaze_coord_list, layers=layers)
+
     observations, gaze_coords = stack_observations_and_gaze_coords(
         observation_list, gaze_coord_list, 4
     )

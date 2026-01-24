@@ -43,7 +43,7 @@ class Config:
     seed: int = 42
 
     # gaze
-    gaze_sigma: int = 5
+    gaze_sigma: int = 15
     gaze_beta: float = 0.99
     gaze_alpha: float = 0.7
 
@@ -471,10 +471,10 @@ def preprocess(
 
     gaze_masks = gaze.decaying_gaussian_mask(
         gaze_coords,
-        sigma=args.gaze_sigma,
         shape=(H, W),
-        beta=args.gaze_beta,
-        alpha=args.gaze_alpha,
+        base_sigma=args.gaze_sigma,
+        temporal_decay=args.gaze_alpha,
+        blur_growth=args.gaze_beta,
     )
 
     aug_observations = observations.to(device=device)
@@ -541,6 +541,7 @@ def main():
     observations, gaze_coords, actions = atari.load_data(
         f"{args.atari_dataset_folder}/{args.game}",
         device="cpu",
+        gaze_temporal_decay=args.gaze_alpha,
     )
 
     train(args, observations, gaze_coords, actions)

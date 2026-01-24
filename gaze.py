@@ -2,7 +2,6 @@ from typing import List, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import torch
 
 # def gaussian_mask(
 #     gaze: torch.Tensor, sigma: float, shape: Tuple[int, int]
@@ -32,77 +31,95 @@ import torch
 #     mask = torch.exp(-dist_sq / (2.0 * sigma**2))
 #
 #     return mask
+import torch
 
 
 def decaying_gaussian_mask(
     gaze_coords: torch.Tensor,
     shape: Tuple[int, int],
-    sigma: float = 5,
-    beta: float = 0.99,
-    alpha: float = 0.7,
+    base_sigma: float = 5.0,  # Gamma in formula
+    temporal_decay: float = 0.9,  # Alpha in formula
+    blur_growth: float = 0.96,  # Beta in formula
 ) -> torch.Tensor:
     """
-    Generates cumulative heatmaps with coordinate smoothing (Alpha) and
-    temporal decay (Beta).
+    Generates cumulative heatmaps with Recasens et al. formulation:
+    Sum of Gaussians with fading amplitude and growing variance.
+
+    Formula: Sum[ alpha^|j| * N(x, gamma * beta^-|j|) ]
 
     :param gaze_coords: (..., layers, 2). Last dim is (x, y), 2nd-to-last is Time.
+                        Values should be normalized coordinates [0, 1].
     :param shape: (height, width) of the image.
-    :param sigma: Spread of the gaussian (Sigma).
-    :param beta: Rate at which previous mask fades (Beta).
-    :param alpha: Smoothing factor for coordinates (0 = no smoothing, 1 = static).
+    :param base_sigma: The size of the spot at the current frame (T=0).
+    :param temporal_decay: How fast intensity fades (0.0 to 1.0).
+    :param blur_growth: How fast variance grows/blurs backwards (0.0 to 1.0).
+                        (Note: <1.0 means it grows as you go back in time).
     :return: (..., height, width). Batch dims matching input.
     """
     H, W = shape
     device = gaze_coords.device
 
+    # 1. Flatten all batch dimensions into one 'B' dimension
     batch_shape = gaze_coords.shape[:-2]
     layers = gaze_coords.shape[-2]
 
-    gaze_flat = gaze_coords.view(-1, layers, 2).clone()
+    # Shape becomes (Total_Batch_Size, Layers, 2)
+    gaze_flat = gaze_coords.view(-1, layers, 2)
     B, L, _ = gaze_flat.shape
 
-    # current = alpha * prev + (1 - alpha) * raw
-    if alpha > 0:
-        for t in range(1, L):
-            prev_coords = gaze_flat[:, t - 1, :]
-            curr_coords = gaze_flat[:, t, :]
-
-            prev_valid = ~torch.isnan(prev_coords).any(dim=1)
-            curr_valid = ~torch.isnan(curr_coords).any(dim=1)
-            should_smooth = prev_valid & curr_valid
-
-            if should_smooth.any():
-                gaze_flat[should_smooth, t, :] = (
-                    alpha * prev_coords[should_smooth]
-                    + (1 - alpha) * curr_coords[should_smooth]
-                )
-
+    # 2. Precompute Grid
     x_range = torch.arange(0, W, dtype=torch.float32, device=device)
     y_range = torch.arange(0, H, dtype=torch.float32, device=device)
     grid_x, grid_y = torch.meshgrid(x_range, y_range, indexing="xy")
 
-    grid_x = grid_x.unsqueeze(0)  # (1, H, W)
-    grid_y = grid_y.unsqueeze(0)  # (1, H, W)
+    # Broadcast grid to batch size: (1, H, W)
+    grid_x = grid_x.unsqueeze(0)
+    grid_y = grid_y.unsqueeze(0)
 
     heatmap = torch.zeros((B, H, W), dtype=torch.float32, device=device)
-    denom = 2.0 * sigma**2
 
-    for i in range(layers):
-        heatmap = heatmap * beta
+    # We assume the last frame in the stack is T=0 (the target)
+    target_idx = L - 1
 
-        current_points = gaze_flat[:, i, :]
+    for t in range(L):
+        # j = distance from target frame (e.g., -5, -4, ... 0)
+        j = t - target_idx
+        abs_j = abs(j)
 
-        valid_mask = ~torch.isnan(current_points).any(dim=1)
+        # --- A. Amplitude Decay (Alpha^|j|) ---
+        weight = temporal_decay**abs_j
 
-        x0 = (current_points[:, 0] * W).view(B, 1, 1)
-        y0 = (current_points[:, 1] * H).view(B, 1, 1)
+        # --- B. Variance Growth (Gamma * Beta^-|j|) ---
+        # Note: Since beta < 1, raising to negative power makes sigma larger
+        current_sigma = base_sigma * (blur_growth**-abs_j)
+        denom = 2.0 * current_sigma**2
 
+        # --- C. Get Coordinates from FLATTENED tensor ---
+        # (Fix: used gaze_flat instead of gaze_coords)
+        pt = gaze_flat[:, t, :]
+
+        # Check for NaNs (invalid gaze points)
+        valid = ~torch.isnan(pt).any(dim=1).view(B, 1, 1)
+
+        # Scale normalized coords to H, W
+        x0 = (pt[:, 0] * W).view(B, 1, 1)
+        y0 = (pt[:, 1] * H).view(B, 1, 1)
+
+        # Squared Euclidean distance
         dist_sq = (grid_x - x0) ** 2 + (grid_y - y0) ** 2
-        current_masks = torch.exp(-dist_sq / denom)
 
-        current_masks = current_masks * valid_mask.view(B, 1, 1)
+        # --- D. Gaussian Calculation ---
+        gauss = torch.exp(-dist_sq / denom) * valid
 
-        heatmap = torch.maximum(heatmap, current_masks)
+        # --- E. Accumulate (Sum) ---
+        heatmap += weight * gauss
+
+    # 3. Normalize per image in the batch
+    # We find the max value for *each* image (dim 1 and 2) to normalize 0-1
+    max_vals = heatmap.flatten(1).max(dim=1).values.view(B, 1, 1)
+
+    # Avoid division by zero
+    heatmap = heatmap / (max_vals + 1e-6)
 
     return heatmap.view(*batch_shape, H, W)
 
