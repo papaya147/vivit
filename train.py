@@ -26,7 +26,7 @@ import augmentation
 import gaze
 import wandb
 from device import device
-from vivit import FactorizedViViTV1, FactorizedViViTV2
+from vivit import FactorizedViViTV1, FactorizedViViTV2, FactorizedViViTV3
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -40,7 +40,7 @@ class Config:
     atari_dataset_folder: str = "./atari-dataset"
     use_plots: bool = False
     save_folder: str = "./models"
-    version: int = 3
+    version: int = 4
     seed: int = 42
 
     # gaze
@@ -294,7 +294,7 @@ def train(
     class_weights = torch.clamp(class_weights, min=1.0, max=10.0)
     class_weights = class_weights.to(device=device)
 
-    model = FactorizedViViTV2(
+    model = FactorizedViViTV3(
         image_size=(H, W),
         patch_size=args.spatial_patch_size,
         frames=F,
