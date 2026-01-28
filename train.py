@@ -21,8 +21,8 @@ from torch.nn.utils import clip_grad_norm_
 from torch.optim.lr_scheduler import CosineAnnealingLR, LinearLR, SequentialLR
 from torch.utils.data import DataLoader, TensorDataset
 
-import atari
 import augmentation
+import dataset
 import gaze
 import wandb
 from device import device
@@ -523,8 +523,8 @@ def preprocess(
 
     # plotting random observations and gazes
     if args.use_plots:
-        atari.plot_frames(aug_observations[random_example])
-        atari.plot_frames(aug_gaze_masks.unsqueeze(2)[random_example])
+        dataset.plot_frames(aug_observations[random_example])
+        dataset.plot_frames(aug_gaze_masks.unsqueeze(2)[random_example])
 
     # gaze_mask_patches = gaze.patchify(
     #     aug_gaze_masks, patch_size=args.spatial_patch_size
@@ -567,12 +567,12 @@ def main():
     else:
         args.game_index = 0
 
-    atari_games = atari.list_games(args.atari_dataset_folder)
+    atari_games = dataset.list_games(args.atari_dataset_folder)
 
     args.game = atari_games[args.game_index]
     print(f"Game: {args.game}")
 
-    observations, gaze_coords, actions = atari.load_data(
+    observations, gaze_coords, actions = dataset.load_data(
         f"{args.atari_dataset_folder}/{args.game}",
         device="cpu",
         gaze_temporal_decay=args.gaze_alpha,
