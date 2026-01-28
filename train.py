@@ -26,7 +26,7 @@ import augmentation
 import gaze
 import wandb
 from device import device
-from vivit import FactorizedViViTV1, FactorizedViViTV2, FactorizedViViTV3
+from vivit import FactorizedViViTV1, FactorizedViViTV2
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -68,7 +68,7 @@ class Config:
     epochs: int = 1000
     train_pct: float = 0.8
     batch_size: int = 32
-    lambda_gaze: float = 1
+    lambda_gaze: float = 0.1
     weight_decay: float = 1e-2
     scheduler_factor: float = 0.5
     scheduler_patience: int = 5
@@ -297,7 +297,7 @@ def train(
     class_weights = torch.clamp(class_weights, min=1.0, max=10.0)
     class_weights = class_weights.to(device=device)
 
-    model = FactorizedViViTV3(
+    model = FactorizedViViTV2(
         image_size=(H, W),
         patch_size=args.spatial_patch_size,
         frames=F,
