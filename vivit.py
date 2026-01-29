@@ -316,7 +316,7 @@ class ViViT(nn.Module):
         return x, cls_attn
 
 
-class FactorizedViViTV1(nn.Module):
+class FactorizedViViT(nn.Module):
     """
     Factorized Vision Transformer. First transformer does per frame, spatial attention.
     Second transformer does temporal attention on the first transformers [CLS] tokens.
@@ -427,7 +427,7 @@ class FactorizedViViTV1(nn.Module):
         return x, cls_attn
 
 
-class FactorizedViViTV2(nn.Module):
+class AuxGazeFactorizedViViT(nn.Module):
     """
     Factorized Vision Transformer. First transformer does per frame, spatial attention and has two [CLS] tokens: [POL] and [GAZE].
     Second transformer does temporal attention on the first transformers [POL] tokens.
@@ -540,7 +540,7 @@ class FactorizedViViTV2(nn.Module):
         return x, gaze_attn
 
 
-class FactorizedViViTV3(nn.Module):
+class FusedGazeFactorizedViViT(nn.Module):
     """
     Factorized Vision Transformer. First transformer does per frame, spatial attention and has two [CLS] tokens: [POL] and [GAZE].
     Second transformer does temporal attention on the first transformers [POL] and [GAZE] tokens.

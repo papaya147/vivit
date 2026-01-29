@@ -27,7 +27,7 @@ import dataset
 import gaze
 import wandb
 from device import device
-from vivit import FactorizedViViTV1, FactorizedViViTV2
+from vivit import AuxGazeFactorizedViViT, FactorizedViViT
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.backends.cudnn.allow_tf32 = True
@@ -42,6 +42,7 @@ class Config:
     use_plots: bool = False
     save_folder: str = "./models"
     seed: int = 42
+    algorithm: str = "FactorizedViViT"
 
     # gaze
     gaze_sigma: int = 15
@@ -301,7 +302,7 @@ def train(
     class_weights = torch.clamp(class_weights, min=1.0, max=10.0)
     class_weights = class_weights.to(device=device)
 
-    model = FactorizedViViTV2(
+    model = AuxGazeFactorizedViViT(
         image_size=(H, W),
         patch_size=args.spatial_patch_size,
         frames=F,
@@ -354,7 +355,7 @@ def train(
         entity="papaya147-ml",
         project="GABRIL-Atari-ViViT",
         config=args.__dict__,
-        name=f"AuxGazeFactorizedViViT_GABRIL-Atari-{args.game}_bs={args.batch_size}_{date_str}",
+        name=f"{args.algorithm}_GABRIL-Atari-{args.game}_bs={args.batch_size}_{date_str}",
         job_type="train",
         id=wandb_id,
         resume="allow",
