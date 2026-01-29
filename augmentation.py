@@ -59,6 +59,33 @@ def random_shift(
     return x_out, gaze_out
 
 
+def random_color_jitter(x: torch.Tensor, intensity: float = 0.2) -> torch.Tensor:
+    """
+    Adds random color jitter to x.
+
+    :param x: (B, F, C, H, W)
+    :param intensity: The max/min change to pixels
+    :return:
+    """
+    B, F, C, H, W = x.shape
+    device = x.device
+
+    # 1. Generate random factors: one for each item in the batch.
+    # Range: [1 - intensity, 1 + intensity]
+    noise = torch.rand(B, device=device) * (2 * intensity) + (1 - intensity)
+
+    # 2. Reshape to (B, 1, 1, 1, 1) so we can broadcast across Frames, Channels, H, W
+    noise = noise.view(B, 1, 1, 1, 1)
+
+    # 3. Apply the jitter
+    x_jittered = x * noise
+
+    # 4. Clamp to ensure we stay in valid pixel range
+    # (Assuming float input 0-1. If using 0-255, change 1.0 to 255.0)
+    max_val = 1.0 if x.max() <= 1.0 else 255.0
+    return torch.clamp(x_jittered, 0.0, max_val)
+
+
 def random_noise(
     x: torch.Tensor, gaze: torch.Tensor = None, std: float = 0.1
 ) -> Tuple[torch.Tensor, torch.Tensor]:
