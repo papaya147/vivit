@@ -399,7 +399,12 @@ def train(
     test_interval = args.epochs / args.n_tests
 
     for e in range(start_epoch, args.epochs):
-        metrics = {}
+        metrics = {
+            "train_loss": 0,
+            "train_policy_loss": 0,
+            "train_gaze_loss": 0,
+            "train_acc": 0,
+        }
 
         # train loop
         model.train()
@@ -429,7 +434,13 @@ def train(
             metrics["train_gaze_loss"] += gaze_loss.item() * curr_batch_size
             metrics["train_acc"] += acc.item()
 
+        mean_reward = -1
         if e % test_interval == 0:
+            metrics["val_loss"] = 0
+            metrics["val_policy_loss"] = 0
+            metrics["val_gaze_loss"] = 0
+            metrics["val_acc"] = 0
+
             # validation
             model.eval()
             with torch.no_grad():
@@ -469,7 +480,8 @@ def train(
             for k, v in metrics.items()
         }
         log_data["epoch"] = e
-        log_data["reward"] = mean_reward
+        if mean_reward != -1:
+            log_data["mean_reward"] = mean_reward
         log_data["learning_rate"] = optimizer.param_groups[0]["lr"]
 
         run.log(data=log_data)
