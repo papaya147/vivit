@@ -428,7 +428,7 @@ def train(
             metrics["train_acc"] += acc.item()
 
         mean_reward = -1
-        if e % test_interval == 0:
+        if (e + 1) % test_interval == 0:
             metrics["val_loss"] = 0
             metrics["val_policy_loss"] = 0
             metrics["val_gaze_loss"] = 0
@@ -457,14 +457,14 @@ def train(
                     metrics["val_gaze_loss"] += gaze_loss.item() * curr_batch_size
                     metrics["val_acc"] += acc.item()
 
-                    # testing
-                    mean_reward = test_agent(args, model)
+            # testing
+            mean_reward = test_agent(args, model)
 
-                    if mean_reward > best_reward:
-                        best_reward = mean_reward
-                        save_path = f"{args.save_folder}/{args.game}/best_reward.pt"
-                        os.makedirs(os.path.dirname(save_path), exist_ok=True)
-                        torch.save(model.state_dict(), save_path)
+            if mean_reward > best_reward:
+                best_reward = mean_reward
+                save_path = f"{args.save_folder}/{args.game}/best_reward.pt"
+                os.makedirs(os.path.dirname(save_path), exist_ok=True)
+                torch.save(model.state_dict(), save_path)
 
         scheduler.step()
 
