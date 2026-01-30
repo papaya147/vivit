@@ -519,8 +519,8 @@ def preprocess(
     aug_observations = observations.to(device=device)  # (B, F, C, H, W)
     aug_gaze_masks = gaze_masks.to(device=device)  # (B, F, H, W)
 
-    rand_n = random.random() * 100
     if augment:
+        rand_n = random.random() * 100
         if (25 < rand_n < 32.33) or (50 < rand_n < 66.66) or (75 < rand_n < 100):
             aug_observations, aug_gaze_masks = augmentation.random_shift(
                 aug_observations, aug_gaze_masks, pad=args.augment_shift_pad
