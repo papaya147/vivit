@@ -251,7 +251,7 @@ def calculate_loss(
         _, _, GH, GW = g.shape
 
         cls_attn = cls_attn.mean(dim=2)  # (B, F, T)
-        _, F, T = cls_attn.shape
+        _, F, _ = cls_attn.shape
         cls_attn = cls_attn.view(
             -1, F, GH // args.spatial_patch_size[0], GW // args.spatial_patch_size[1]
         )  # (B, F, H / PH, W / PW)
@@ -262,6 +262,8 @@ def calculate_loss(
             mode="bilinear",
             align_corners=False,
         )  # (B, F, H, W)
+        current_sum = cls_attn.sum(dim=(2, 3), keepdim=True) + 1e-8
+        cls_attn = cls_attn / current_sum
 
         gaze_loss = torch.norm(cls_attn - g, p="fro", dim=(1, 2)) ** 2
         gaze_loss = gaze_loss.mean()
