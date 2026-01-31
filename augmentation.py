@@ -93,19 +93,21 @@ class Augment:
                 ),
                 A.RandomBrightnessContrast(p=1.0),
             ],
-            p=1.0,
+            p=p_spatial_corruption,
         )
 
-        noise = A.GaussNoise(std_range=(noise_std, noise_std), p=1.0)
+        noise = A.GaussNoise(std_range=(noise_std, noise_std), p=p_spatial_corruption)
 
         pixel_drop = A.PixelDropout(
             dropout_prob=p_pixel_dropout,
-            p=1.0,
+            p=p_spatial_corruption,
         )
 
-        posterize = A.Posterize(num_bits=posterize_bits, p=1.0)
+        posterize = A.Posterize(num_bits=posterize_bits, p=p_spatial_corruption)
 
-        blur = A.GaussianBlur(blur_limit=(blur_pixels, blur_pixels), p=1.0)
+        blur = A.GaussianBlur(
+            blur_limit=(blur_pixels, blur_pixels), p=p_spatial_corruption
+        )
 
         spatial_corruptions = [light, noise, pixel_drop, posterize, blur]
 
@@ -116,8 +118,13 @@ class Augment:
         self.augment = A.Compose(
             [
                 crop,
-                A.OneOf(spatial_corruptions, p=p_spatial_corruption),
-                A.OneOf(temporal_corruptions, p=p_temporal_corruption),
+                # A.OneOf(spatial_corruptions, p=p_spatial_corruption),
+                # A.OneOf(temporal_corruptions, p=p_temporal_corruption),
+                light,
+                noise,
+                pixel_drop,
+                posterize,
+                blur,
             ],
         )
 
