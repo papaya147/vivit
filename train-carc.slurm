@@ -5,10 +5,10 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=10
 #SBATCH --gpus-per-task=1
-#SBATCH --constraint="a100|l40s|v100"
+#SBATCH --constraint="a100|l40s"
 #SBATCH --mem=48G
-#SBATCH --time=24:00:00
-#SBATCH --array=0-14
+#SBATCH --time=04:00:00
+#SBATCH --array=0
 #SBATCH --output=logs/%x-%A_%a.out
 
 cd $SLURM_SUBMIT_DIR
